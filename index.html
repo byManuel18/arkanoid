@@ -1,0 +1,279 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ARKANOID</title>
+
+    <style>
+      body {
+        background: #111;
+      }
+      canvas {
+        border: 4px solid #fff;
+        border-bottom: transparent;
+        background: url(./bkg.png) repeat;
+        margin: 0 auto;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas></canvas>
+
+    <img id="briscks" src="./bricks.png" alt="bricks" hidden />
+    <img id="sprite" src="./sprite.png" alt="sprite" hidden />
+
+    <script>
+      const canvas = document.querySelector("canvas");
+      const ctx = canvas.getContext("2d");
+
+      const sprite = document.querySelector("#sprite");
+      const briscks = document.querySelector("#briscks");
+
+      canvas.width = 448;
+      canvas.height = 510;
+
+      // FRAMES
+
+      const FPS = 60;
+      const MSPERFRAME = 1000 / FPS;
+
+      let msPrev = window.performance.now();
+      let msFPSPrev = window.performance.now() + 1000;
+      let frames = 0;
+      let framesPerSec = FPS;
+
+      // VARIABLES DE LA PELOTA
+
+      const BALL_RADIUS = 4;
+
+      let x_b = canvas.width / 2;
+      let y_b = canvas.height - 50;
+
+      let dx_b = 2;
+      let dy_b = -2;
+
+      // VARIABLES DE LA PALETA
+
+      const PADDLE_HEIGHT = 10;
+      const PADDLE_WIDTH = 50;
+      const PADDLE_VELOCITY = 4;
+
+      const PADDLE_Y = canvas.height - PADDLE_HEIGHT - 10;
+      let paddleX = (canvas.width - PADDLE_WIDTH) / 2;
+
+      let rightPress = false;
+      let leftPress = false;
+
+      // VARIABLES DE LOS LADRILLOS
+
+      const BLOCK_ROW_COUNT = 6;
+      const BLOCK_COLUM_COUNT = 13;
+      const BLOCK_WIDHT = 32;
+      const BLOCK_HEIGHT = 14;
+      const BLOCK_PADDING = 0;
+      const BLOCK_OFFSET_TOP = 80;
+      const BLOCK_OFFSET_LEFT = 16;
+
+      const BLOCK_STATUS = {
+        FRESH: 1,
+        HIT: 0,
+      };
+
+      const BLOCKS = [];
+
+      for (let c = 0; c < BLOCK_COLUM_COUNT; c++) {
+        BLOCKS[c] = [];
+        for (let r = 0; r < BLOCK_ROW_COUNT; r++) {
+          const blockX = c * (BLOCK_WIDHT + BLOCK_PADDING) + BLOCK_OFFSET_LEFT;
+          const blockY = r * (BLOCK_HEIGHT + BLOCK_PADDING) + BLOCK_OFFSET_TOP;
+
+          const random = Math.floor(Math.random() * 8);
+
+          BLOCKS[c][r] = {
+            x: blockX,
+            y: blockY,
+            status: BLOCK_STATUS.FRESH,
+            color: random,
+          };
+        }
+      }
+
+      function cleanCanvas() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+
+      function drawBall() {
+        ctx.beginPath();
+        ctx.arc(x_b, y_b, BALL_RADIUS, 0, Math.PI * 2);
+        ctx.fillStyle = "#fff";
+        ctx.fill();
+        ctx.closePath();
+      }
+      function drawPaddle() {
+        ctx.fillStyle = "#fff";
+        // ctx.fillRect(paddleX, PADDLE_Y, PADDLE_WIDTH, PADDLE_HEIGHT);
+
+        ctx.drawImage(
+          sprite,
+          29,
+          174,
+          PADDLE_WIDTH,
+          PADDLE_HEIGHT,
+          paddleX,
+          PADDLE_Y,
+          PADDLE_WIDTH,
+          PADDLE_HEIGHT
+        );
+      }
+      function drawBricks() {
+        for (let c = 0; c < BLOCK_COLUM_COUNT; c++) {
+          for (let r = 0; r < BLOCK_ROW_COUNT; r++) {
+            const actualBlock = BLOCKS[c][r];
+            if (actualBlock.status === BLOCK_STATUS.FRESH) {
+              // ctx.beginPath();
+              // ctx.fillStyle = 'yellow';
+              // ctx.rect(actualBlock.blockX, actualBlock.blockY, BLOCK_WIDHT, BLOCK_HEIGHT);
+              // ctx.fill();
+              // ctx.closePath();
+
+              const clipx = actualBlock.color * 32;
+
+              ctx.drawImage(
+                briscks,
+                clipx,
+                0,
+                BLOCK_WIDHT,
+                BLOCK_HEIGHT,
+                actualBlock.x,
+                actualBlock.y,
+                BLOCK_WIDHT,
+                BLOCK_HEIGHT
+              );
+            }
+          }
+        }
+      }
+
+      function collisionDetection() {
+
+        for (let c = 0; c < BLOCK_COLUM_COUNT; c++) {
+          for (let r = 0; r < BLOCK_ROW_COUNT; r++) {
+            const actualBlock = BLOCKS[c][r];
+            if (actualBlock.status === BLOCK_STATUS.FRESH) {
+              const isBallSameX =  
+              x_b > actualBlock.x &&
+              x_b < BLOCK_WIDHT + actualBlock.x;
+
+              const isBallSameY =  
+              y_b > actualBlock.y &&
+              y_b < BLOCK_HEIGHT + actualBlock.y;
+
+              if(isBallSameX && isBallSameY){
+                actualBlock.status = BLOCK_STATUS.HIT;
+                dy_b = -dy_b;
+              }
+            }
+          }
+        }
+        
+      }
+      function ballMovement() {
+        //robotar en laterales
+
+        if (
+          x_b + dx_b > canvas.width - BALL_RADIUS ||
+          x_b + dx_b < BALL_RADIUS
+        ) {
+          dx_b = -dx_b;
+        }
+
+        //robotar arriba
+
+        if (y_b + dy_b < BALL_RADIUS) {
+          dy_b = -dy_b;
+        }
+
+        //colision con la pala
+
+        if (
+          y_b + dy_b > PADDLE_Y &&
+          x_b > paddleX &&
+          x_b < PADDLE_WIDTH + paddleX
+        ) {
+          dy_b = -dy_b;
+        } else if (y_b >= canvas.height - BALL_RADIUS) {
+          //toca límite inferior
+          //Game over
+          document.location.reload();
+        }
+
+        x_b += dx_b;
+        y_b += dy_b;
+      }
+      function paddleMovement() {
+        if (leftPress && paddleX > 0) {
+          paddleX -= PADDLE_VELOCITY;
+        } else if (rightPress && canvas.width > paddleX + PADDLE_WIDTH) {
+          paddleX += PADDLE_VELOCITY;
+        }
+      }
+
+      function initEvents() {
+        document.addEventListener("keydown", keyDownHandler);
+        document.addEventListener("keyup", keyUpHandler);
+
+        function keyDownHandler(event) {
+          const { key } = event;
+          if (key === "Right" || key === "ArrowRight") {
+            rightPress = true;
+          } else if (key === "Left" || key === "ArrowLeft") {
+            leftPress = true;
+          }
+        }
+
+        function keyUpHandler(event) {
+          const { key } = event;
+          if (key === "Right" || key === "ArrowRight") {
+            rightPress = false;
+          } else if (key === "Left" || key === "ArrowLeft") {
+            leftPress = false;
+          }
+        }
+      }
+
+      function draw() {
+        window.requestAnimationFrame(draw);
+
+        const msNow = window.performance.now();
+        const msPassed = msNow - msPrev;
+
+        if (msPassed < MSPERFRAME) return;
+
+        const excessTime = msPassed % MSPERFRAME;
+        msPrev = msNow - excessTime;
+
+        frames++;
+
+        if (msFPSPrev < msNow) {
+          msFPSPrev = window.performance.now() + 1000;
+          framesPerSec = frames;
+          frames = 0;
+        }
+
+        cleanCanvas();
+
+        drawBall();
+        drawPaddle();
+        drawBricks();
+
+        collisionDetection();
+        ballMovement();
+        paddleMovement();
+      }
+
+      draw();
+      initEvents();
+    </script>
+  </body>
+</html>
